@@ -4,7 +4,19 @@ Pi Reviewer is a standalone code review CLI built with Pi Factory. It reviews a 
 
 ## Install
 
-Install Pi Reviewer from source:
+Install Pi Reviewer from npm:
+
+```bash
+npm install -g @osolmaz/pi-reviewer
+```
+
+Or run it once with `npx`:
+
+```bash
+npx @osolmaz/pi-reviewer --base main
+```
+
+To build from source instead:
 
 ```bash
 git clone https://github.com/osolmaz/pi-reviewer.git
