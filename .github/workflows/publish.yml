@@ -19,40 +19,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  stage:
-    name: Stage
+  publish:
     runs-on: ubuntu-latest
+    environment: npm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22.19.0
           cache: npm
+          registry-url: https://registry.npmjs.org
       - run: npm ci
       - run: npm run check
-      - run: npm pack
-      - name: Upload tarball
-        uses: actions/upload-artifact@v4
-        with:
-          name: pi-reviewer-tarball
-          path: osolmaz-pi-reviewer-*.tgz
-          if-no-files-found: error
-          retention-days: 7
-
-  publish:
-    name: Publish
-    needs: stage
-    runs-on: ubuntu-latest
-    environment: npm
-    steps:
-      - name: Download tarball
-        uses: actions/download-artifact@v4
-        with:
-          name: pi-reviewer-tarball
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22.19.0
-          registry-url: https://registry.npmjs.org
-      - run: npm publish osolmaz-pi-reviewer-*.tgz --access public --provenance
+      - run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
