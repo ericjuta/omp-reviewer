@@ -23,9 +23,9 @@
     "prompts/**",
     "pi-factory.toml",
     "README.md",
-    "CODEX-COMPARISON.md",
-    "CASE-STUDY.md",
-    "UPSTREAM.md",
+    "docs/CODEX-COMPARISON.md",
+    "docs/CASE-STUDY.md",
+    "docs/UPSTREAM.md",
     "LICENSE",
     "LICENSE.codex"
   ],

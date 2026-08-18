@@ -38,4 +38,4 @@ First public release of Pi Reviewer, a standalone code review CLI built with Pi 
 - Optional user config at `~/.config/pi-reviewer/config.json` for default model and thinking level.
 - Shared canonical Pi `auth.json` for OpenAI Codex and Hugging Face Inference Providers models, including route-suffixed identifiers.
 - Strict model manifest support for models not yet in Pi's catalog.
-- Codex-compatible review rubric and target prompt wording, vendored from upstream commit `fa1d4c40d0e63eef2e0ba8a9e004ccd0a80b77f5`; see `UPSTREAM.md`, `CODEX-COMPARISON.md`, and `CASE-STUDY.md`.
+- Codex-compatible review rubric and target prompt wording, vendored from upstream commit `fa1d4c40d0e63eef2e0ba8a9e004ccd0a80b77f5`; see `docs/UPSTREAM.md`, `docs/CODEX-COMPARISON.md`, and `docs/CASE-STUDY.md`.
