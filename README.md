@@ -4,12 +4,14 @@ Pi Reviewer is a standalone code review CLI built with Pi Factory. It reviews a 
 
 ## Install
 
-The package is currently developed in the OnurPi workspace:
+Install Pi Reviewer from source:
 
 ```bash
-npm install
-npm run build --workspace @osolmaz/pi-reviewer
-npm link --workspace @osolmaz/pi-reviewer
+git clone https://github.com/osolmaz/pi-reviewer.git
+cd pi-reviewer
+npm ci
+npm run build
+npm link
 ```
 
 ## Configure a model
