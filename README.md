@@ -1,6 +1,6 @@
 # Pi Reviewer
 
-Pi Reviewer is a standalone code review CLI built with Pi Factory. It reviews a Git diff in a fresh Pi process and returns prioritized P0 through P3 findings in the same shape as standalone `codex review`.
+Pi Reviewer is a standalone code review CLI built with [Pi Factory](https://github.com/osolmaz/pi-factory). It reviews a Git diff in a fresh Pi process and returns prioritized P0 through P3 findings in the same shape as standalone `codex review`.
 
 ## Install
 
