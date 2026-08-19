@@ -1,7 +1,13 @@
 {
   "name": "@osolmaz/pi-reviewer",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Standalone Pi code reviewer with Codex-compatible findings",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "code-review",
+    "cli"
+  ],
   "type": "module",
   "license": "MIT",
   "repository": {
@@ -19,8 +25,7 @@
   },
   "files": [
     "dist/src/**",
-    "extensions/**",
-    "prompts/**",
+    "reviewer/**",
     "pi-factory.toml",
     "README.md",
     "docs/CODEX-COMPARISON.md",

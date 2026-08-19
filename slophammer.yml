@@ -7,7 +7,7 @@ typescript:
     max_findings: 0
     paths:
       - src
-      - extensions
+      - reviewer/extensions
     exclude:
       - "**/*.test.ts"
       - pattern: "eslint.config.mjs"
@@ -21,11 +21,11 @@ typescript:
       - src/git-target.ts
       - src/pi-events.ts
       - src/review-output.ts
-      - extensions/shell-policy.ts
+      - reviewer/extensions/shell-policy.ts
   dependency_boundaries:
     - from: src
       allow:
         - src
-    - from: extensions
+    - from: reviewer/extensions
       allow:
-        - extensions
+        - reviewer/extensions

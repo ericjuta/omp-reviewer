@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.5
+
+### Changed
+
+- Add Pi package gallery metadata.
+- Keep reviewer-only extensions and prompts outside Pi's conventional package resource directories.
+
 ## 0.1.4
 
 ### Fixed

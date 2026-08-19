@@ -20,5 +20,5 @@
     "skipLibCheck": true,
     "types": ["node", "vitest/globals"]
   },
-  "include": ["src/**/*.ts", "extensions/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "reviewer/extensions/**/*.ts", "scripts/**/*.ts", "test/**/*.ts"]
 }

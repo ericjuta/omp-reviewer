@@ -137,8 +137,8 @@ packages/pi-reviewer/
   UPSTREAM.md
   package.json
   pi-factory.toml
-  prompts/review-system.md
-  extensions/review-guard.ts
+  reviewer/prompts/review-system.md
+  reviewer/extensions/review-guard.ts
   src/cli.ts
   src/args.ts
   src/app.ts

@@ -24,7 +24,7 @@ Reviewed source files:
 
 Copied material:
 
-- `prompts/review-system.md` starts from Codex's review rubric.
+- `reviewer/prompts/review-system.md` starts from Codex's review rubric.
 - `src/git-target.ts` uses the target prompt text from `review_request.rs`.
 - `src/review-output.ts` implements the review output shape from the rubric and protocol.
 

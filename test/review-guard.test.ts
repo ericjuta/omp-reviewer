@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toolUnavailableReason } from "../extensions/review-guard.js";
+import { toolUnavailableReason } from "../reviewer/extensions/review-guard.js";
 
 describe("review tool availability", () => {
   it("permits configured review tools during exploration", () => {

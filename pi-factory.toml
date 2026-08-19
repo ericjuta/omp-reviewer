@@ -8,7 +8,7 @@ session_dir = "~/.local/state/pi-reviewer/sessions"
 pi_command = ["pi"]
 thinking = "high"
 tools = ["read", "grep", "find", "ls", "review_shell"]
-system_prompt = "prompts/review-system.md"
+system_prompt = "reviewer/prompts/review-system.md"
 
 [provider]
 id = "unconfigured"
@@ -19,4 +19,4 @@ id = "unconfigured"
 reasoning = true
 
 [[extensions]]
-path = "extensions/review-guard.ts"
+path = "reviewer/extensions/review-guard.ts"

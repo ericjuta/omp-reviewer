@@ -7,7 +7,7 @@ export default {
     "src/git-target.ts",
     "src/pi-events.ts",
     "src/review-output.ts",
-    "extensions/shell-policy.ts",
+    "reviewer/extensions/shell-policy.ts",
   ],
   reporters: ["clear-text", "progress"],
   testRunner: "vitest",

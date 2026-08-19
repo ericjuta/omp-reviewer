@@ -11,7 +11,7 @@ import {
   safeProgramArgs,
   validateCheckoutPath,
   validateShellCommand,
-} from "../extensions/shell-policy.js";
+} from "../reviewer/extensions/shell-policy.js";
 
 const cleanup: string[] = [];
 

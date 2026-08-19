@@ -69,7 +69,7 @@ describe("Pi Reviewer app", () => {
     expect(app.extensions).toHaveLength(1);
     expect(app.forwardedArgs).toContain("--no-extensions");
     const extension = await readFile(
-      path.join(packageRoot, "extensions", "review-guard.ts"),
+      path.join(packageRoot, "reviewer", "extensions", "review-guard.ts"),
       "utf8",
     );
     expect(extension).not.toMatch(/gpt-|claude|gemini|openai-codex/u);
@@ -208,7 +208,10 @@ describe("Pi Reviewer app", () => {
   });
 
   it("keeps the vendored Codex rubric after line-ending normalization", async () => {
-    const prompt = await readFile(path.join(packageRoot, "prompts", "review-system.md"), "utf8");
+    const prompt = await readFile(
+      path.join(packageRoot, "reviewer", "prompts", "review-system.md"),
+      "utf8",
+    );
     const normalized = prompt.replaceAll("\r\n", "\n");
     const localLine =
       "* Use `review_shell` for read-only Git and repository inspection commands. Shell pipelines, redirection, network access, and mutation are unavailable.\n";
