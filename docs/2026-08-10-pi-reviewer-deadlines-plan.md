@@ -6,6 +6,10 @@ date: 2026-08-10
 
 # Add cooperative Pi Reviewer deadlines
 
+> **Status:** The warning and exploration-budget design remains current. The finalization design is
+> superseded by [Add soft and hard review finalization](2026-08-20-soft-and-hard-review-finalization-plan.md).
+> In particular, do not queue a steering message before abort.
+
 ## Goal
 
 Pi Reviewer must stop treating its review limit as a wall-clock kill. A configured deadline should
