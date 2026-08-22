@@ -65,13 +65,13 @@ function parseConfig(args: readonly string[]): ParsedCommand {
   if (action === "show") return noConfigArguments(rest, { kind: "config-show" });
   if (action === "reset") return noConfigArguments(rest, { kind: "config-reset" });
   if (action === "set") return parseConfigSet(rest);
-  throw new Error("usage: pi-reviewer config <show|reset|set model VALUE|set thinking LEVEL>");
+  throw new Error("usage: omp-reviewer config <show|reset|set model VALUE|set thinking LEVEL>");
 }
 
 function parseConfigSet(args: readonly string[]): ParsedCommand {
   const [key, value, extra] = args;
   if (value === undefined || extra !== undefined) {
-    throw new Error("usage: pi-reviewer config set <model VALUE|thinking LEVEL>");
+    throw new Error("usage: omp-reviewer config set <model VALUE|thinking LEVEL>");
   }
   if (key === "model") return { kind: "config-set-model", model: validateModel(value) };
   if (key === "thinking") return { kind: "config-set-thinking", thinking: validateThinking(value) };
@@ -84,13 +84,13 @@ function noConfigArguments<T extends ParsedCommand>(args: readonly string[], com
 }
 
 function parseLogin(args: readonly string[]): ParsedCommand {
-  if (args.length > 1) throw new Error("usage: pi-reviewer login [provider]");
+  if (args.length > 1) throw new Error("usage: omp-reviewer login [provider]");
   const provider = args[0];
   return provider === undefined ? { kind: "login" } : { kind: "login", provider };
 }
 
 function parseModels(args: readonly string[]): ParsedCommand {
-  if (args.length > 1) throw new Error("usage: pi-reviewer models [search]");
+  if (args.length > 1) throw new Error("usage: omp-reviewer models [search]");
   const search = args[0];
   return search === undefined ? { kind: "models" } : { kind: "models", search };
 }
@@ -345,5 +345,5 @@ function required(value: string | undefined, message: string): string {
 }
 
 export function reviewUsage(): string {
-  return "usage: pi-reviewer (--uncommitted | --base BRANCH | --commit SHA | INSTRUCTIONS) [--model PROVIDER/MODEL] [--model-manifest PATH] [--metrics-file PATH] [--session-dir DIR] [--session-receipt PATH] [--lifecycle-receipt PATH] [--no-session] [--max-model-requests N] [--time-budget DURATION] [--time-warning PERCENT|DURATION] [--finalization-grace DURATION] [--hard-finalization-grace DURATION] [--thinking LEVEL] [--format text|json] [--cwd DIR]";
+  return "usage: omp-reviewer (--uncommitted | --base BRANCH | --commit SHA | INSTRUCTIONS) [--model PROVIDER/MODEL] [--model-manifest PATH] [--metrics-file PATH] [--session-dir DIR] [--session-receipt PATH] [--lifecycle-receipt PATH] [--no-session] [--max-model-requests N] [--time-budget DURATION] [--time-warning PERCENT|DURATION] [--finalization-grace DURATION] [--hard-finalization-grace DURATION] [--thinking LEVEL] [--format text|json] [--cwd DIR]";
 }

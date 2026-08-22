@@ -99,7 +99,7 @@ describe("review arguments", () => {
   });
 
   it("rejects ambiguous and malformed arguments", () => {
-    expect(() => parseArgs([])).toThrow("usage: pi-reviewer");
+    expect(() => parseArgs([])).toThrow("usage: omp-reviewer");
     expect(() => parseArgs(["--base"])).toThrow("--base requires a value");
     expect(() => parseArgs(["--base", "main", "--uncommitted"])).toThrow("mutually exclusive");
     expect(() => parseArgs(["--base", "main", "instructions"])).toThrow("mutually exclusive");
@@ -151,7 +151,7 @@ describe("review arguments", () => {
     expect(
       resolveSelection(undefined, undefined, {
         version: 1,
-        auth: "pi",
+        auth: "omp",
         model: "openai-codex/gpt-review",
         thinking: "high",
       }),
@@ -159,12 +159,12 @@ describe("review arguments", () => {
     expect(
       resolveSelection("openai/other", "low", {
         version: 1,
-        auth: "pi",
+        auth: "omp",
         model: "openai-codex/gpt-review",
         thinking: "high",
       }),
     ).toEqual({ provider: "openai", model: "other", thinking: "low" });
-    expect(() => resolveSelection(undefined, undefined, { version: 1, auth: "pi" })).toThrow(
+    expect(() => resolveSelection(undefined, undefined, { version: 1, auth: "omp" })).toThrow(
       "No review model configured",
     );
   });

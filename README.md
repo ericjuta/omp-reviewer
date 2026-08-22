@@ -1,30 +1,30 @@
-# pi-reviewer
+# omp-reviewer
 
 <p align="center">
-  <img src="assets/cover.svg" alt="pi-reviewer: a Git diff goes in, prioritized P0 to P3 findings come out" width="880">
+  <img src="assets/cover.svg" alt="omp-reviewer: a Git diff goes in, prioritized P0 to P3 findings come out" width="880">
 </p>
 
-pi-reviewer is a standalone code review CLI built with [pi-factory](https://github.com/osolmaz/pi-factory). It reviews a Git diff in a fresh Pi process and returns prioritized P0 through P3 findings in the same shape as standalone `codex review`.
+omp-reviewer is a standalone code review CLI for [Oh My Pi](https://omp.sh). It reviews a Git diff in a fresh `omp` process and returns prioritized P0 through P3 findings in the same shape as standalone `codex review`.
 
 ## Install
 
-Install pi-reviewer from npm:
+Install omp-reviewer from npm:
 
 ```bash
-npm install -g @osolmaz/pi-reviewer
+npm install -g @ericjuta/omp-reviewer
 ```
 
 Or run it once with `npx`:
 
 ```bash
-npx @osolmaz/pi-reviewer --base main
+npx @ericjuta/omp-reviewer --base main
 ```
 
 To build from source instead:
 
 ```bash
-git clone https://github.com/osolmaz/pi-reviewer.git
-cd pi-reviewer
+git clone https://github.com/ericjuta/omp-reviewer.git
+cd omp-reviewer
 npm ci
 npm run build
 npm link
@@ -32,46 +32,40 @@ npm link
 
 ## Configure a model
 
-pi-reviewer has no model identifier in its review extension. Set the default outside the extension:
+omp-reviewer has no model identifier in its review extension. Set the default outside the extension:
 
 ```bash
-pi-reviewer config set model openai-codex/gpt-5.6-terra
-pi-reviewer config set thinking high
+omp-reviewer config set model openai-codex/gpt-5.6-terra
+omp-reviewer config set thinking high
 ```
 
-The optional user config lives at `~/.config/pi-reviewer/config.json`. A command-line model or thinking level overrides it for one run:
+The optional user config lives at `~/.config/omp-reviewer/config.json`. A command-line model or thinking level overrides it for one run:
 
 ```bash
-pi-reviewer --model openai-codex/gpt-5.6-sol --thinking high --base main
+omp-reviewer --model openai-codex/gpt-5.6-sol --thinking high --base main
 ```
 
-pi-reviewer selects the provider implementation, model data, and existing authentication from the
-main Pi profile:
+omp-reviewer selects the provider implementation, model data, and existing authentication from the
+main OMP profile:
 
 ```bash
-pi-reviewer models gpt-5.6
+omp-reviewer models gpt-5.6
 ```
 
-The model in Reviewer config applies only to pi-reviewer. It does not change normal Pi's selected
+The model in Reviewer config applies only to omp-reviewer. It does not change normal OMP's selected
 provider or model. Prompts, tools, context files, sessions, repository policy, and review lifecycle
 remain isolated.
 
-Credentials stay in regular Pi's canonical `auth.json` or the selected provider's existing store. If
-a selected provider package owns authentication, authenticate it through normal Pi. `pi-reviewer
-login` does not create a single canonical credential as a fallback.
-
-Hugging Face Inference Providers models work through regular Pi's Hugging Face OAuth from `pi-huggingface-oauth`, including route-suffixed model identifiers discovered by regular Pi. The reviewer registers the same OAuth provider in its isolated runtime and reads regular Pi's model catalog cache in place.
+Credentials stay in the OMP agent store (`~/.omp/agent`). `omp-reviewer login` runs `omp login`.
 
 ```bash
-pi-reviewer config set model huggingface/moonshotai/Kimi-K3:fireworks-ai
-pi-reviewer config set thinking high
+omp-reviewer config set model huggingface/moonshotai/Kimi-K3:fireworks-ai
+omp-reviewer config set thinking high
 ```
 
-If the canonical auth file has no Hugging Face credential yet, run `pi-reviewer login huggingface` or
-regular Pi's Hugging Face login once. Both use the same canonical credential. Token refreshes stay
-shared through that file, so the reviewer never holds its own copy.
+If OMP has no Hugging Face credential yet, run `omp-reviewer login huggingface` or `omp login huggingface`.
 
-For a model that is not yet in Pi's catalog, pass a strict model manifest. The selected provider and model must match the manifest. `apiKeyEnv` names an environment variable; the manifest does not contain the credential.
+For a model that is not yet in OMP's catalog, pass a strict model manifest. The selected provider and model must match the manifest. `apiKeyEnv` names an environment variable; the manifest does not contain the credential.
 
 ```json
 {
@@ -95,68 +89,58 @@ For a model that is not yet in Pi's catalog, pass a strict model manifest. The s
 ```
 
 ```bash
-pi-reviewer --model example/organization/model:route \
+omp-reviewer --model example/organization/model:route \
   --model-manifest ./model.json --base main
 ```
 
 ## Review
 
 ```bash
-pi-reviewer --uncommitted
-pi-reviewer --base main
-pi-reviewer --commit <sha>
-pi-reviewer "focus on cancellation safety"
+omp-reviewer --uncommitted
+omp-reviewer --base main
+omp-reviewer --commit <sha>
+omp-reviewer "focus on cancellation safety"
 ```
 
 The command writes progress to stderr and the final report to stdout. Use `--format json` to emit the validated Codex-compatible result object without terminal prose:
 
 ```bash
-pi-reviewer --base main --format json > review.json
+omp-reviewer --base main --format json > review.json
 ```
 
-Use `--metrics-file` to record cumulative token use, estimated cost from the pinned model prices, and the provider, requested model, and response model reported by Pi. The file is refreshed after each model response, including during a review that later fails.
+Use `--metrics-file` to record cumulative token use and the provider and model reported by OMP. The file is refreshed after each model response, including during a review that later fails.
 
 ```bash
-pi-reviewer --base main --format json --metrics-file ./review-metrics.json > review.json
+omp-reviewer --base main --format json --metrics-file ./review-metrics.json > review.json
 ```
 
-Every review saves a native Pi JSONL session under `~/.local/state/pi-reviewer/sessions`. Sessions preserve messages, tool calls, tool results, model errors, and usage for later debugging, resume workflows, audits, or training-data preparation. They can contain reviewed source code and tool output, so protect and retain them like the repository itself.
+Every review saves an OMP session under `~/.local/state/omp-reviewer/sessions` unless you pass `--no-session`. Sessions can contain reviewed source code and tool output, so protect and retain them like the repository itself.
 
-Integrations can isolate a run with `--session-dir DIR` and request private receipts with `--session-receipt PATH` and `--lifecycle-receipt PATH`. The session receipt records the native session path, mode, byte count, entry count, and SHA-256 checksum. The lifecycle receipt records redacted phase, branch, request, usage, submission-normalization, and cleanup evidence. It does not contain prompts, source text, assistant text, tool arguments, request headers, or credentials. Use `--no-session` only when persistence is deliberately unwanted; it cannot be combined with session output options.
+Integrations can isolate a run with `--session-dir DIR` and write compact receipts with `--session-receipt PATH` and `--lifecycle-receipt PATH`. Receipts record the session directory and outcome only. They do not contain prompts, source text, assistant text, tool arguments, or credentials. `--no-session` cannot be combined with session output options.
 
-pi-reviewer treats the time limit as an exploration budget. The default run gives the model 10 minutes to investigate, with reminders at 50% and 25% remaining. It then gives the model up to two minutes to submit through a normal Pi turn. If that turn does not submit, pi-reviewer makes one provider request with reasoning off and `submit_review` forced. The hard request gets a separate full two-minute limit.
-
-The hard request uses the session branch that Pi already compacted. pi-reviewer sends that branch unchanged and lets the provider enforce its exact context limit; it does not block the request with a local size estimate, trim the history, or retry a rejected request.
-
-Configure the three phase limits and repeatable warnings as needed:
+omp-reviewer treats `--time-budget` as the exploration limit (default 10 minutes). If that `omp -p` turn does not call `submit_review`, omp-reviewer resumes the same session with `--continue` and a submit-only prompt for `--finalization-grace` (default 2 minutes). There is no second fabricated result and no prose fallback.
 
 ```bash
-pi-reviewer --base main \
+omp-reviewer --base main \
   --time-budget 30m \
   --time-warning 50% \
   --time-warning 10m \
-  --time-warning 5m \
-  --finalization-grace 10m \
-  --hard-finalization-grace 2m
+  --finalization-grace 10m
 ```
 
-Explicit warnings replace the defaults. Before each finalization phase, pi-reviewer clears queued messages, aborts the prior turn, and waits up to one minute for Pi to report that the session is idle. Soft finalization keeps the selected thinking level, system prompt, context, and full ordered tool list. The review guard blocks all tool execution except `submit_review` without changing that list.
+Final review output must come through `submit_review`. Raw JSON or assistant prose is not accepted.
 
-Hard finalization runs only when soft finalization does not submit. pi-reviewer keeps the failed soft branch in the native session, restores the branch point saved before soft finalization, and sends one direct request with the same prompt prefix and full tools. The request disables reasoning, forces the named `submit_review` tool, and has no automatic retry. One submission gate accepts at most one valid review across all phases. pi-reviewer reports provider cache reuse only when the provider returns a cache-read count.
+Before schema validation, omp-reviewer shortens finding titles longer than 80 Unicode characters. It can also fill a missing numeric priority when the title starts with an exact `[P0]` through `[P3]` prefix. Missing review content, conflicting priorities, invalid scores or ranges, unsafe paths, extra fields, and other malformed output still fail.
 
-`--max-model-requests N` uses the same finalization path after the Nth complete model response. Time and request limits cannot start competing finalization turns. Final review output must come through `submit_review`; raw JSON or prose is not accepted as a second submission protocol.
+A successful review returns zero even when it has findings. Invalid targets, missing `omp`, authentication failures, model failures, a missing `submit_review`, or cancellation return nonzero. omp-reviewer never fabricates a clean result.
 
-Before schema validation, pi-reviewer shortens finding titles longer than 80 Unicode characters. It can also fill a missing numeric priority when the title starts with an exact `[P0]` through `[P3]` prefix. The native session keeps the model's raw call, while the accepted tool result and final report contain the normalized review. Missing review content, conflicting priorities, invalid scores or ranges, unsafe paths, extra fields, and other malformed output still fail.
-
-A successful review returns zero even when it has findings. Invalid targets, authentication failures, model failures, finalization failures, hard worker timeouts, or cancellation return nonzero. pi-reviewer never fabricates a clean result when the provider cannot finalize. A persistent session remains available after review or output-validation failure once model execution has started, including budget warnings and finalization prompts.
-
-Review execution stays in a bounded child worker that is separate from the CLI process. Worker initialization has its own one-minute limit and does not consume review time; the parent starts its review watchdog only after the worker reports that model review is starting. Tools can inspect only the current checkout. Guarded command subprocesses receive a minimal environment without model-provider credentials. Mutation, network clients, shell operators, external Git helpers, and paths outside the checkout are blocked.
+The CLI spawns the installed `omp` binary in print mode. Auth comes from the regular OMP profile (`~/.omp/agent`, or `OMP_PROFILE`). Do not pass `--profile` for isolation; that empties credentials. Tools can inspect only the current checkout. Guarded command subprocesses receive a minimal environment. Mutation, network clients, shell operators, external Git helpers, and paths outside the checkout are blocked.
 
 ## Codex compatibility
 
-pi-reviewer vendors Codex's review rubric and target prompt wording from commit `fa1d4c40d0e63eef2e0ba8a9e004ccd0a80b77f5`. [`UPSTREAM.md`](docs/UPSTREAM.md) records the exact sources and local changes. [`CODEX-COMPARISON.md`](docs/CODEX-COMPARISON.md) compares the commands and gives the same-branch verification procedure. [`CASE-STUDY.md`](docs/CASE-STUDY.md) records a paired comparison on two historical snapshots with known defects.
+omp-reviewer vendors Codex's review rubric and target prompt wording from commit `fa1d4c40d0e63eef2e0ba8a9e004ccd0a80b77f5`. [`UPSTREAM.md`](docs/UPSTREAM.md) records the exact sources and local changes. [`CODEX-COMPARISON.md`](docs/CODEX-COMPARISON.md) compares the commands and gives the same-branch verification procedure. [`CASE-STUDY.md`](docs/CASE-STUDY.md) records a paired comparison on two historical snapshots with known defects.
 
-Both tools support custom instructions and the same review targets. A target can cover uncommitted changes or compare against either a base branch or one commit. Both return findings with a title, body, confidence, priority, location, correctness verdict, and overall confidence. pi-reviewer requires every finding to contain a P0 through P3 priority and fails closed on malformed output.
+Both tools support custom instructions and the same review targets. A target can cover uncommitted changes or compare against either a base branch or one commit. Both return findings with a title, body, confidence, priority, location, correctness verdict, and overall confidence. omp-reviewer requires every finding to contain a P0 through P3 priority and fails closed on malformed output.
 
 ## Development
 

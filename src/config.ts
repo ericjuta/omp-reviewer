@@ -8,7 +8,7 @@ import type { ThinkingLevel, UserConfig } from "./types.js";
 
 export function defaultConfigPath(env: NodeJS.ProcessEnv = process.env): string {
   const root = env["XDG_CONFIG_HOME"] ?? path.join(os.homedir(), ".config");
-  return path.join(root, "pi-reviewer", "config.json");
+  return path.join(root, "omp-reviewer", "config.json");
 }
 
 export async function loadConfig(file = defaultConfigPath()): Promise<UserConfig> {
@@ -16,7 +16,7 @@ export async function loadConfig(file = defaultConfigPath()): Promise<UserConfig
     if (isNodeError(error) && error.code === "ENOENT") return undefined;
     throw error;
   });
-  if (text === undefined) return { version: 1, auth: "pi" };
+  if (text === undefined) return { version: 1, auth: "omp" };
   let value: unknown;
   try {
     value = JSON.parse(text);
@@ -85,9 +85,9 @@ export async function writeConfig(config: UserConfig, file = defaultConfigPath()
   }
 }
 
-function validateAuth(value: unknown, source: string): "pi" {
-  if (value !== undefined && value !== "pi") throw new Error(`${source}: auth must be pi`);
-  return "pi";
+function validateAuth(value: unknown, source: string): "omp" {
+  if (value !== undefined && value !== "omp") throw new Error(`${source}: auth must be omp`);
+  return "omp";
 }
 
 function optionalString(value: unknown, field: string): string | undefined {

@@ -5,7 +5,7 @@ export default {
     "src/args.ts",
     "src/config.ts",
     "src/git-target.ts",
-    "src/pi-events.ts",
+    "src/omp-events.ts",
     "src/review-output.ts",
     "reviewer/extensions/shell-policy.ts",
   ],

@@ -5,12 +5,10 @@ import { fileURLToPath } from "node:url";
 
 import { loadReviewerApp } from "./app.js";
 import { parseArgs, parseModel, reviewUsage } from "./args.js";
-import { loginReviewerApp } from "./auth.js";
+import { listReviewerModels, loginReviewer } from "./auth.js";
 import { loadConfig, resetConfig, setConfigModel, setConfigThinking } from "./config.js";
 import { resolveTarget } from "./git-target.js";
-import { loadCustomModelManifest } from "./model-manifest.js";
-import { listReviewerModels } from "./models.js";
-import type { PiRunMetrics } from "./pi-events.js";
+import type { OmpRunMetrics } from "./omp-events.js";
 import { renderReview, renderReviewJson } from "./render.js";
 import { runReview, type RunReviewInput } from "./runner.js";
 import { terminalText } from "./terminal-text.js";
@@ -50,7 +48,7 @@ async function runConfigCommand(command: ConfigCommand): Promise<number> {
       return 0;
     case "config-reset":
       await resetConfig();
-      process.stdout.write("pi-reviewer defaults reset.\n");
+      process.stdout.write("omp-reviewer defaults reset.\n");
       return 0;
     case "config-set-model":
       process.stdout.write(`${JSON.stringify(await setConfigModel(command.model), null, 2)}\n`);
@@ -64,37 +62,18 @@ async function runConfigCommand(command: ConfigCommand): Promise<number> {
 }
 
 async function runLogin(provider: string | undefined): Promise<number> {
-  await loginReviewerApp(await loadReviewerApp(), provider);
+  await loginReviewer(provider);
   return 0;
 }
 
 async function runModels(search: string | undefined): Promise<number> {
-  const config = await loadConfig();
-  const selected = config.model === undefined ? undefined : parseModel(config.model);
-  const models = await listReviewerModels(
-    await loadReviewerApp(),
-    search,
-    undefined,
-    selected === undefined
-      ? undefined
-      : {
-          ...selected,
-          thinking: config.thinking ?? "high",
-        },
-  );
-  process.stdout.write(
-    models.length === 0 ? "No matching authenticated models.\n" : `${models.join("\n")}\n`,
-  );
+  process.stdout.write(await listReviewerModels(search));
   return 0;
 }
 
 async function runReviewCommand(request: ReviewRequest): Promise<number> {
   const config = await loadConfig();
   const selection = resolveSelection(request.model, request.thinking, config);
-  const modelManifest =
-    request.modelManifest === undefined
-      ? undefined
-      : await loadCustomModelManifest(request.modelManifest, selection);
   const target = await resolveTarget(request.target, request.cwd);
   const app = await loadReviewerApp();
   const metricsFile = request.metricsFile;
@@ -102,19 +81,15 @@ async function runReviewCommand(request: ReviewRequest): Promise<number> {
   const output = await runReview({
     app,
     selection,
-    ...(modelManifest === undefined ? {} : { modelManifest }),
-    ...(request.maxModelRequests === undefined
-      ? {}
-      : { maxModelRequests: request.maxModelRequests }),
-    ...budgetRunOptions(request),
-    ...sessionRunOptions(request),
     cwd: target.cwd,
     prompt: target.prompt,
     stderr: process.stderr,
+    ...budgetRunOptions(request),
+    ...sessionRunOptions(request),
     ...(metricsFile === undefined
       ? {}
       : {
-          onMetrics: (metrics: PiRunMetrics) => {
+          onMetrics: (metrics: OmpRunMetrics) => {
             writeMetrics(metricsFile, metrics);
           },
         }),
@@ -158,8 +133,8 @@ function sessionRunOptions(
   };
 }
 
-function writeMetrics(path: string, metrics: PiRunMetrics): void {
-  writeFileSync(path, `${JSON.stringify(metrics)}\n`, { mode: 0o600 });
+function writeMetrics(file: string, metrics: OmpRunMetrics): void {
+  writeFileSync(file, `${JSON.stringify(metrics)}\n`, { mode: 0o600 });
 }
 
 export function formatReviewProgress(hint: string, selection: ModelSelection): string {
@@ -176,7 +151,7 @@ export function resolveSelection(
   const configuredModel = modelOverride ?? config.model;
   if (configuredModel === undefined) {
     throw new Error(
-      "No review model configured. Run `pi-reviewer config set model provider/model` or pass --model provider/model.",
+      "No review model configured. Run `omp-reviewer config set model provider/model` or pass --model provider/model.",
     );
   }
   const model = parseModel(configuredModel);
@@ -188,17 +163,17 @@ export function resolveSelection(
 
 function help(): string {
   return `${[
-    "pi-reviewer - isolated read-only code review with P0-P3 findings",
+    "omp-reviewer - isolated read-only OMP code review with P0-P3 findings",
     "",
     reviewUsage(),
     "",
     "commands:",
-    "  pi-reviewer config set model PROVIDER/MODEL",
-    "  pi-reviewer config set thinking LEVEL",
-    "  pi-reviewer config show",
-    "  pi-reviewer config reset",
-    "  pi-reviewer login [provider]",
-    "  pi-reviewer models [search]",
+    "  omp-reviewer config set model PROVIDER/MODEL",
+    "  omp-reviewer config set thinking LEVEL",
+    "  omp-reviewer config show",
+    "  omp-reviewer config reset",
+    "  omp-reviewer login [provider]",
+    "  omp-reviewer models [search]",
     "",
   ].join("\n")}\n`;
 }

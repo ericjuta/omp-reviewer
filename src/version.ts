@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PACKAGE_NAME = "@osolmaz/pi-reviewer";
+export const PACKAGE_NAME = "@ericjuta/omp-reviewer";
 const MAX_PARENT_SEARCH = 4;
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
@@ -15,17 +15,17 @@ export function packageVersion(startDirectory = dirname(fileURLToPath(import.met
     if (parent === directory) break;
     directory = parent;
   }
-  throw new Error("pi-reviewer package metadata was not found");
+  throw new Error("omp-reviewer package metadata was not found");
 }
 
 function readVersion(metadataPath: string): string {
   const metadata: unknown = JSON.parse(readFileSync(metadataPath, "utf8"));
   if (!isRecord(metadata) || metadata["name"] !== PACKAGE_NAME) {
-    throw new Error("pi-reviewer package metadata has an invalid name");
+    throw new Error("omp-reviewer package metadata has an invalid name");
   }
   const version = metadata["version"];
   if (typeof version !== "string" || !SEMVER.test(version)) {
-    throw new Error("pi-reviewer package metadata has an invalid version");
+    throw new Error("omp-reviewer package metadata has an invalid version");
   }
   return version;
 }

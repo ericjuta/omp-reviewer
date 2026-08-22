@@ -1,50 +1,48 @@
-import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { mkdir } from "node:fs/promises";
+import { spawn, type ChildProcessByStdio } from "node:child_process";
+import type { Readable } from "node:stream";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
+import type { ReviewerApp } from "./app.js";
+import { formatModelFlag } from "./app.js";
+import { resolveOmpCommand } from "./omp-command.js";
 import {
-  runtimeConfigPaths,
-  writePiRuntimeConfig,
-  type PiAppDefinition,
-} from "@osolmaz/pi-factory";
-
-import { regularPiAgentDir, regularPiAuthPath } from "./auth-path.js";
-import { recordParentTermination } from "./lifecycle-receipt.js";
-import { PiEventCollector, type PiRunMetrics } from "./pi-events.js";
-import { parseReviewOutput } from "./review-output.js";
+  acceptSubmitReviewFromEvents,
+  accumulateMetrics,
+  type OmpRunMetrics,
+} from "./omp-events.js";
+import { writeJsonReceipt } from "./receipts.js";
 import {
+  formatOmpMaxTime,
   resolveReviewTimePolicy,
+  withBudgetNotice,
   workerWatchdogTimeoutMs,
   type ReviewTimePolicy,
 } from "./review-budget.js";
-import { selectAppModel } from "./app.js";
-import type { CustomModelManifest, ModelSelection, ReviewOutput, TimeWarning } from "./types.js";
-import type { ReviewWorkerRequest } from "./worker-protocol.js";
+import { parseReviewOutput } from "./review-output.js";
+import type { ModelSelection, ReviewOutput, TimeWarning } from "./types.js";
 
-const TERMINATION_GRACE_MS = 2_000;
-const WORKER_STARTUP_TIMEOUT_MS = 60_000;
 const MAX_STDERR_BYTES = 128 * 1024;
-
-type WorkerProcess = Pick<ChildProcessWithoutNullStreams, "kill" | "pid">;
-type WorkerTerminator = (child: WorkerProcess, force?: boolean) => void;
+const FINALIZATION_PROMPT =
+  "Submit the final review now with submit_review. Do not call any other tool. Do not write the review as prose.";
 
 export type RunReviewInput = {
-  readonly app: PiAppDefinition;
+  readonly app: ReviewerApp;
   readonly selection: ModelSelection;
-  readonly modelManifest?: CustomModelManifest;
+  readonly cwd: string;
+  readonly prompt: string;
   readonly persistSession?: boolean;
   readonly sessionDir?: string;
   readonly sessionReceipt?: string;
   readonly lifecycleReceipt?: string;
-  readonly maxModelRequests?: number;
   readonly timeBudgetMs?: number;
   readonly timeWarnings?: readonly TimeWarning[];
   readonly finalizationGraceMs?: number;
   readonly hardFinalizationGraceMs?: number;
-  readonly cwd: string;
-  readonly prompt: string;
   readonly stderr?: NodeJS.WritableStream;
-  readonly onMetrics?: (metrics: PiRunMetrics) => void;
+  readonly onMetrics?: (metrics: OmpRunMetrics) => void;
+  readonly ompCommand?: string;
+  readonly env?: NodeJS.ProcessEnv;
 };
 
 export async function runReview(input: RunReviewInput): Promise<ReviewOutput> {
@@ -54,236 +52,196 @@ export async function runReview(input: RunReviewInput): Promise<ReviewOutput> {
     input.finalizationGraceMs,
     input.hardFinalizationGraceMs,
   );
-  const app = selectAppModel(input.app, input.selection, input.modelManifest);
-  const runtime =
-    input.modelManifest === undefined ? runtimeConfigPaths(app) : await writePiRuntimeConfig(app);
-  await mkdir(runtime.configDir, { recursive: true, mode: 0o700 });
-  const extension = app.extensions?.[0];
-  if (extension === undefined) throw new Error("pi-reviewer extension is not configured");
-  if (app.systemPrompt === undefined)
-    throw new Error("pi-reviewer system prompt is not configured");
-  const request = createWorkerRequest(
-    input,
-    app,
-    extension.path,
-    app.systemPrompt,
-    input.modelManifest === undefined
-      ? { source: "pi", agentDir: regularPiAgentDir() }
-      : {
-          source: "custom",
-          authPath: regularPiAuthPath(),
-          modelsPath: runtime.modelsPath,
-        },
-    runtime.configDir,
-    policy,
-  );
-  const finalText = await executeWorker(
-    app.piCommand,
-    request,
-    app.env,
-    input.stderr,
-    input.onMetrics,
-    workerWatchdogTimeoutMs(policy),
-    request.lifecycleReceipt,
-  );
-  return parseReviewOutput(finalText, input.cwd);
-}
-
-function createWorkerRequest(
-  input: RunReviewInput,
-  app: PiAppDefinition,
-  extensionPath: string,
-  systemPrompt: string,
-  runtime: ReviewWorkerRequest["runtime"],
-  configDir: string,
-  policy: ReviewTimePolicy,
-): ReviewWorkerRequest {
-  return {
-    version: 1,
-    cwd: input.cwd,
-    prompt: input.prompt,
-    runtime,
-    configDir,
-    extensionPath,
-    systemPrompt,
-    provider: input.selection.provider,
-    model: input.selection.model,
-    ...sessionRequestOptions(input),
-    maxModelRequests: input.maxModelRequests ?? null,
-    timeBudgetMs: policy.timeBudgetMs,
-    warningRemainingMs: policy.warningRemainingMs,
-    finalizationGraceMs: policy.finalizationGraceMs,
-    hardFinalizationGraceMs: policy.hardFinalizationGraceMs,
-    thinking: input.selection.thinking,
-    tools: app.tools?.split(",").filter((tool) => tool !== "") ?? [],
-  };
-}
-
-function sessionRequestOptions(
-  input: RunReviewInput,
-): Pick<
-  ReviewWorkerRequest,
-  "persistSession" | "sessionDir" | "sessionReceipt" | "lifecycleReceipt"
-> {
+  const omp = input.ompCommand ?? (await resolveOmpCommand(input.env));
+  const systemPrompt = await readFile(input.app.systemPromptPath, "utf8");
   const persistSession = input.persistSession ?? true;
-  if (
-    !persistSession &&
-    (input.sessionReceipt !== undefined || input.lifecycleReceipt !== undefined)
-  ) {
-    throw new Error("session and lifecycle receipts require persistent sessions");
-  }
-  return {
-    persistSession,
-    sessionDir: input.sessionDir ?? input.app.sessionDir,
-    sessionReceipt: input.sessionReceipt ?? null,
-    lifecycleReceipt:
-      input.lifecycleReceipt === undefined ? null : path.resolve(input.cwd, input.lifecycleReceipt),
-  };
-}
-
-async function executeWorker(
-  command: readonly string[],
-  request: ReviewWorkerRequest,
-  appEnv: Readonly<Record<string, string>> | undefined,
-  stderr: NodeJS.WritableStream | undefined,
-  onMetrics: ((metrics: PiRunMetrics) => void) | undefined,
-  watchdogTimeoutMs: number,
-  lifecycleReceipt: string | null,
-): Promise<string> {
-  const [program, ...args] = command;
-  if (program === undefined) throw new Error("pi-reviewer worker command is empty");
-  const child = spawn(program, args, {
-    cwd: request.cwd,
-    env: {
-      ...process.env,
-      ...appEnv,
-      PI_OFFLINE: "1",
-      PI_REVIEWER_WORKER: "1",
-      PI_SKIP_VERSION_CHECK: "1",
-      PI_TELEMETRY: "0",
-    },
-    shell: false,
-    detached: process.platform !== "win32",
-    stdio: ["pipe", "pipe", "pipe"],
+  const sessionDir = input.sessionDir ?? input.app.defaultSessionDir;
+  const printBase = printInput(omp, input);
+  const explore = await runOmpPrint({
+    ...printBase,
+    timeoutMs: workerWatchdogTimeoutMs(policy),
+    args: exploreArgs(input, systemPrompt, persistSession, sessionDir, policy),
   });
-  child.stdin.end(JSON.stringify(request));
-  return await collectChild(child, stderr, onMetrics, watchdogTimeoutMs, lifecycleReceipt);
-}
-
-// eslint-disable-next-line max-lines-per-function -- Keep child signals, streams, timers, and cleanup in one owner.
-async function collectChild(
-  child: ChildProcessWithoutNullStreams,
-  stderr: NodeJS.WritableStream | undefined,
-  onMetrics: ((metrics: PiRunMetrics) => void) | undefined,
-  watchdogTimeoutMs: number,
-  lifecycleReceipt: string | null,
-): Promise<string> {
-  const collector = new PiEventCollector();
-  let stderrBytes = 0;
-  let failure: Error | undefined;
-  let killTimer: NodeJS.Timeout | undefined;
-  let watchdogTimer: NodeJS.Timeout | undefined;
-  let terminationMode: "normal" | "sigterm" | "sigkill" = "normal";
-  let shutdownRequested = false;
-  const terminate = (message: string): void => {
-    failure ??= new Error(message);
-    terminationMode = "sigterm";
-    terminateProcess(child);
-    killTimer ??= setTimeout(() => {
-      terminationMode = "sigkill";
-      terminateProcess(child, true);
-    }, TERMINATION_GRACE_MS);
-  };
-  watchdogTimer = setTimeout(() => {
-    terminate("review worker did not start within 1m");
-  }, WORKER_STARTUP_TIMEOUT_MS);
-  const onInterrupt = (): void => {
-    terminate("review cancelled");
-  };
-  const onTerminate = (): void => {
-    terminate("review terminated");
-  };
-  process.once("SIGINT", onInterrupt);
-  process.once("SIGTERM", onTerminate);
-  // eslint-disable-next-line complexity -- Process each bounded worker event and its state-dependent cleanup together.
-  child.stdout.on("data", (chunk: Buffer) => {
-    try {
-      const reviewWasStarted = collector.hasReviewStarted();
-      collector.feed(chunk);
-      if (!reviewWasStarted && collector.hasReviewStarted()) {
-        if (watchdogTimer !== undefined) clearTimeout(watchdogTimer);
-        watchdogTimer = scheduleWorkerWatchdog(child, watchdogTimeoutMs, (error) => {
-          failure ??= error;
-          terminationMode = "sigkill";
-        });
-      }
-      if (!shutdownRequested && collector.requiresParentTermination()) {
-        shutdownRequested = true;
-        terminate(collector.shutdownError() ?? "review worker requested parent termination");
-      }
-      onMetrics?.(collector.metrics());
-    } catch (error) {
-      failure = error instanceof Error ? error : new Error(String(error));
-      terminate(failure.message);
-    }
-  });
-  child.stderr.on("data", (chunk: Buffer) => {
-    const remaining = MAX_STDERR_BYTES - stderrBytes;
-    if (remaining <= 0) return;
-    const output = chunk.subarray(0, remaining);
-    stderrBytes += output.length;
-    stderr?.write(output);
-  });
-  return await new Promise<string>((resolve, reject) => {
-    child.on("error", (error) => {
-      failure = error;
+  let submission = acceptSubmitReviewFromEvents(explore.events, input.cwd);
+  if (submission === undefined && persistSession) {
+    const finalize = await runOmpPrint({
+      ...printBase,
+      timeoutMs: policy.finalizationGraceMs + 30_000,
+      args: finalizeArgs(input, persistSession, sessionDir, policy),
     });
-    child.on("close", (code, signal) => {
-      void (async () => {
-        if (watchdogTimer !== undefined) clearTimeout(watchdogTimer);
-        if (killTimer !== undefined) clearTimeout(killTimer);
-        process.removeListener("SIGINT", onInterrupt);
-        process.removeListener("SIGTERM", onTerminate);
-        await recordParentTermination(lifecycleReceipt, terminationMode);
-        if (failure !== undefined) reject(failure);
-        else if (signal !== null) reject(new Error(`Pi terminated by ${signal}`));
-        else if (code !== 0) reject(new Error(`Pi exited with status ${String(code)}`));
-        else {
-          try {
-            resolve(collector.finish().finalText);
-          } catch (error) {
-            reject(error instanceof Error ? error : new Error(String(error)));
-          }
+    submission = acceptSubmitReviewFromEvents(finalize.events, input.cwd);
+  }
+  if (submission === undefined) throw new Error("review completed without submit_review");
+  await writeReceipts(input, sessionDir, persistSession, submission.overall_correctness);
+  return parseReviewOutput(JSON.stringify(submission), input.cwd);
+}
+
+function exploreArgs(
+  input: RunReviewInput,
+  systemPrompt: string,
+  persistSession: boolean,
+  sessionDir: string,
+  policy: ReviewTimePolicy,
+): string[] {
+  return [
+    ...baseOmpArgs(input, persistSession, sessionDir),
+    "--max-time",
+    formatOmpMaxTime(policy.timeBudgetMs),
+    "--system-prompt",
+    systemPrompt,
+    withBudgetNotice(input.prompt, policy),
+  ];
+}
+
+function finalizeArgs(
+  input: RunReviewInput,
+  persistSession: boolean,
+  sessionDir: string,
+  policy: ReviewTimePolicy,
+): string[] {
+  return [
+    ...baseOmpArgs(input, persistSession, sessionDir),
+    "--continue",
+    "--max-time",
+    formatOmpMaxTime(policy.finalizationGraceMs),
+    FINALIZATION_PROMPT,
+  ];
+}
+
+function baseOmpArgs(input: RunReviewInput, persistSession: boolean, sessionDir: string): string[] {
+  const args = [
+    "-p",
+    "--mode",
+    "json",
+    "--auto-approve",
+    "--no-extensions",
+    "--no-skills",
+    "--no-rules",
+    "--extension",
+    input.app.extensionPath,
+    "--tools",
+    "read,grep,glob",
+    "--cwd",
+    input.cwd,
+    "--thinking",
+    input.selection.thinking,
+    "--model",
+    formatModelFlag(input.selection.provider, input.selection.model),
+  ];
+  if (persistSession) args.push("--session-dir", sessionDir);
+  else args.push("--no-session");
+  return args;
+}
+
+type OmpPrintResult = { readonly events: unknown[]; readonly metrics: OmpRunMetrics };
+
+function printInput(
+  omp: string,
+  input: RunReviewInput,
+): Pick<Parameters<typeof runOmpPrint>[0], "omp" | "cwd" | "env" | "stderr" | "onMetrics"> {
+  return {
+    omp,
+    cwd: input.cwd,
+    ...(input.env === undefined ? {} : { env: input.env }),
+    ...(input.stderr === undefined ? {} : { stderr: input.stderr }),
+    ...(input.onMetrics === undefined ? {} : { onMetrics: input.onMetrics }),
+  };
+}
+
+async function runOmpPrint(input: {
+  readonly omp: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly stderr?: NodeJS.WritableStream;
+  readonly onMetrics?: (metrics: OmpRunMetrics) => void;
+  readonly timeoutMs: number;
+}): Promise<OmpPrintResult> {
+  const child = spawn(input.omp, [...input.args], {
+    cwd: input.cwd,
+    env: input.env ?? process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return await collectChild(child, input);
+}
+
+async function collectChild(
+  child: ChildProcessByStdio<null, Readable, Readable>,
+  input: {
+    readonly stderr?: NodeJS.WritableStream;
+    readonly onMetrics?: (metrics: OmpRunMetrics) => void;
+    readonly timeoutMs: number;
+  },
+): Promise<OmpPrintResult> {
+  const events: unknown[] = [];
+  let metrics: OmpRunMetrics = {};
+  let stderrBytes = 0;
+  const lines = createJsonLineParser();
+  const timer = setTimeout(() => child.kill("SIGTERM"), input.timeoutMs);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      child.stdout.on("data", (chunk: Buffer) => {
+        for (const event of lines.push(chunk.toString("utf8"))) {
+          events.push(event);
+          metrics = accumulateMetrics(metrics, event);
+          input.onMetrics?.(metrics);
         }
-      })().catch((error: unknown) => {
-        reject(error instanceof Error ? error : new Error(String(error)));
+      });
+      child.stderr.on("data", (chunk: Buffer) => {
+        stderrBytes += chunk.length;
+        if (stderrBytes <= MAX_STDERR_BYTES) input.stderr?.write(chunk);
+      });
+      child.on("error", reject);
+      child.on("close", (code) => {
+        if (code === 0 || events.length > 0) resolve();
+        else reject(new Error(`omp review worker exited ${String(code ?? 1)}`));
       });
     });
-  });
-}
-
-export function scheduleWorkerWatchdog(
-  child: WorkerProcess,
-  timeoutMs: number,
-  onTimeout: (error: Error) => void,
-  terminate: WorkerTerminator = terminateProcess,
-): NodeJS.Timeout {
-  return setTimeout(() => {
-    onTimeout(new Error("review worker did not exit after its cooperative deadline"));
-    terminate(child, true);
-  }, timeoutMs);
-}
-
-function terminateProcess(child: WorkerProcess, force = false): void {
-  const signal = force ? "SIGKILL" : "SIGTERM";
-  if (child.pid === undefined) return;
-  if (process.platform !== "win32") {
-    try {
-      process.kill(-child.pid, signal);
-      return;
-    } catch {
-      // Fall back to the direct child when the process group is already gone.
-    }
+    return { events, metrics };
+  } finally {
+    clearTimeout(timer);
   }
-  child.kill(signal);
+}
+
+function createJsonLineParser(): { push(chunk: string): unknown[] } {
+  let pending = "";
+  return {
+    push(chunk: string): unknown[] {
+      const combined = `${pending}${chunk}`;
+      const parts = combined.split("\n");
+      pending = parts.pop() ?? "";
+      return parts.flatMap(parseJsonLine);
+    },
+  };
+}
+
+function parseJsonLine(line: string): unknown[] {
+  const trimmed = line.trim();
+  if (trimmed === "") return [];
+  try {
+    return [JSON.parse(trimmed)];
+  } catch {
+    return [];
+  }
+}
+
+async function writeReceipts(
+  input: RunReviewInput,
+  sessionDir: string,
+  persistSession: boolean,
+  outcome: string,
+): Promise<void> {
+  await writeJsonReceipt(
+    input.sessionReceipt,
+    persistSession
+      ? { version: 1, sessionDir: path.resolve(sessionDir) }
+      : { version: 1, sessionDir: null },
+  );
+  await writeJsonReceipt(input.lifecycleReceipt, {
+    schema: "omp-reviewer.lifecycle.v1",
+    outcome,
+    persistSession,
+    sessionDir: persistSession ? path.resolve(sessionDir) : null,
+    model: formatModelFlag(input.selection.provider, input.selection.model),
+  });
 }

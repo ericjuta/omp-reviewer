@@ -2,11 +2,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
-import { writePiRuntimeConfig } from "@osolmaz/pi-factory";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { selectAppModel } from "../src/app.js";
 import { loadCustomModelManifest } from "../src/model-manifest.js";
 import type { ModelSelection } from "../src/types.js";
 
@@ -60,52 +57,12 @@ afterEach(async () => {
 });
 
 describe("custom model manifest", () => {
-  it("loads a strict manifest and configures a custom Pi provider", async () => {
-    const file = await manifestFile(validManifest());
-    const manifest = await loadCustomModelManifest(file, selection);
-    const stateDirectory = path.join(path.dirname(file), "state");
-    const app = selectAppModel(
-      {
-        id: "reviewer",
-        name: "Reviewer",
-        stateDir: stateDirectory,
-        sessionDir: path.join(stateDirectory, "sessions"),
-        piCommand: ["pi"],
-        providers: [],
-        defaultProvider: "unconfigured",
-        defaultModel: "unconfigured",
-        thinking: "high",
-      },
-      selection,
-      manifest,
-    );
-
-    expect(app.providers).toEqual([
-      {
-        id: "huggingface",
-        source: "custom",
-        baseUrl: "https://router.huggingface.co/v1",
-        api: "openai-completions",
-        apiKey: "$HF_TOKEN",
-        compat: { supportsDeveloperRole: false, supportsReasoningEffort: false },
-        models: [manifest.model],
-      },
-    ]);
-    expect(app.defaultModel).toBe(selection.model);
-
-    const runtimeConfig = await writePiRuntimeConfig(app);
-    const runtime = await ModelRuntime.create({
-      authPath: path.join(app.stateDir, "auth.json"),
-      modelsPath: runtimeConfig.modelsPath,
-      modelsStorePath: path.join(app.stateDir, "models-store.json"),
-      allowModelNetwork: false,
-    });
-    expect(runtime.getModel(selection.provider, selection.model)).toMatchObject({
-      id: selection.model,
-      provider: selection.provider,
-      contextWindow: 1_048_576,
-      maxTokens: 384_000,
-    });
+  it("loads a strict manifest", async () => {
+    const manifest = await loadCustomModelManifest(await manifestFile(validManifest()), selection);
+    expect(manifest.provider.id).toBe(selection.provider);
+    expect(manifest.model.id).toBe(selection.model);
+    expect(manifest.model.contextWindow).toBe(1_048_576);
+    expect(manifest.model.maxTokens).toBe(384_000);
   });
 
   it("accepts a manifest without optional fields", async () => {

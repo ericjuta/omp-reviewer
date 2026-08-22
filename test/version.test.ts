@@ -12,19 +12,19 @@ afterEach(() => {
 });
 
 function temporaryRoot(): string {
-  const root = mkdtempSync(join(tmpdir(), "pi-reviewer-version-"));
+  const root = mkdtempSync(join(tmpdir(), "omp-reviewer-version-"));
   roots.push(root);
   return root;
 }
 
 describe("package version", () => {
-  it("reads the nearest pi-reviewer package metadata", () => {
+  it("reads the nearest omp-reviewer package metadata", () => {
     const root = temporaryRoot();
     const nested = join(root, "dist", "src");
     mkdirSync(nested, { recursive: true });
     writeFileSync(
       join(root, "package.json"),
-      JSON.stringify({ name: "@osolmaz/pi-reviewer", version: "1.2.3-beta.1" }),
+      JSON.stringify({ name: "@ericjuta/omp-reviewer", version: "1.2.3-beta.1" }),
     );
 
     expect(packageVersion(nested)).toBe("1.2.3-beta.1");
