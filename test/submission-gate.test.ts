@@ -48,6 +48,25 @@ describe("ReviewSubmissionGate", () => {
     expect(raw.findings[0]?.title).toBe(originalTitle);
   });
 
+  it("discards host intent metadata without weakening review validation", () => {
+    const raw = { ...VALID, i: "Submitting Review" };
+    const prepared = prepareReviewSubmission(raw);
+    const accepted = new ReviewSubmissionGate("/repo").accept(raw);
+
+    expect(prepared.value).not.toHaveProperty("i");
+    expect(raw.i).toBe("Submitting Review");
+    expect(accepted.overall_correctness).toBe("patch is incorrect");
+    expect(() => new ReviewSubmissionGate("/repo").accept({ ...VALID, extra: true })).toThrow(
+      "unknown field extra",
+    );
+    expect(() =>
+      new ReviewSubmissionGate("/repo").accept({
+        ...VALID,
+        findings: [{ ...VALID.findings[0], i: "Nested Intent" }],
+      }),
+    ).toThrow("unknown field i");
+  });
+
   it("uses Unicode characters instead of UTF-16 code units for the title limit", () => {
     const title = `[P1] ${"x".repeat(74)}😀`;
     expect(Array.from(title)).toHaveLength(MAX_FINDING_TITLE_CHARACTERS);

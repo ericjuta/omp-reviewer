@@ -35,7 +35,9 @@ export type ReviewSubmission = {
 export function prepareReviewSubmission(value: unknown): PreparedReviewSubmission {
   const prepared: unknown = structuredClone(value);
   const normalization = { titleTruncationCount: 0, priorityInferenceCount: 0 };
-  if (!isRecord(prepared) || !Array.isArray(prepared["findings"])) {
+  if (!isRecord(prepared)) return { value: prepared, normalization };
+  delete prepared["i"];
+  if (!Array.isArray(prepared["findings"])) {
     return { value: prepared, normalization };
   }
   coerceConfidence(prepared, "overall_confidence_score");

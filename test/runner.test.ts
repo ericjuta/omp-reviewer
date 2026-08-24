@@ -20,7 +20,7 @@ describe("omp review runner", () => {
     await writeFile(
       omp,
       `#!/bin/sh
-printf '%s\\n' '{"type":"tool_call","name":"submit_review","arguments":{"findings":[],"overall_correctness":"patch is correct","overall_explanation":"No defect.","overall_confidence_score":0.8}}'
+printf '%s\\n' '{"type":"tool_call","name":"submit_review","arguments":{"i":"Submitting Review","findings":[],"overall_correctness":"patch is correct","overall_explanation":"No defect.","overall_confidence_score":0.8}}'
 `,
     );
     await chmod(omp, 0o755);

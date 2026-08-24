@@ -130,7 +130,7 @@ omp-reviewer --base main \
 
 Final review output must come through `submit_review`. Raw JSON or assistant prose is not accepted.
 
-Before schema validation, omp-reviewer shortens finding titles longer than 80 Unicode characters. It can also fill a missing numeric priority when the title starts with an exact `[P0]` through `[P3]` prefix. Missing review content, conflicting priorities, invalid scores or ranges, unsafe paths, extra fields, and other malformed output still fail.
+Before schema validation, omp-reviewer shortens finding titles longer than 80 Unicode characters. It can also fill a missing numeric priority when the title starts with an exact `[P0]` through `[P3]` prefix. OMP's host-only top-level `i` intent label is discarded before validation. Missing review content, conflicting priorities, invalid scores or ranges, unsafe paths, all other extra fields, and other malformed output still fail.
 
 A successful review returns zero even when it has findings. Invalid targets, missing `omp`, authentication failures, model failures, a missing `submit_review`, or cancellation return nonzero. omp-reviewer never fabricates a clean result.
 
